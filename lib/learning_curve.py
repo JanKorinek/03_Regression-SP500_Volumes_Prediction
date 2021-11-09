@@ -1,31 +1,25 @@
 #!/usr/bin/env python
-
 """
 plot inspired by 
 https://scikit-learn.org/stable/auto_examples/model_selection/plot_learning_curve.html#sphx-glr-auto-examples-model-selection-plot-learning-curve-py
 """
-from sklearn.model_selection import TimeSeriesSplit
-import matplotlib.pyplot as plt
+# Libraries import
 import numpy as np
-from sklearn.model_selection import learning_curve
-from sklearn.datasets import load_iris, load_digits
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import TimeSeriesSplit, learning_curve
+from sklearn.datasets import load_iris
 from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
-from sklearn.model_selection import ShuffleSplit
+
 plt.style.use('seaborn')
 
-def plot_learning_curve(estimator, X, y, ax=None, save_as=None, cv=5):
+def plot_learning_curve(estimator, X, y, ax, params_gen):
     """
-    an sklearn estimator 
+    Funciton for plotting learning curve while comparing multiple models.
     """
 
-    if not ax:
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-
-    # cv = ShuffleSplit(n_splits=5, test_size=0.2, random_state=0)
-    cv = TimeSeriesSplit(n_splits=4)
+    cv = TimeSeriesSplit(n_splits=params_gen['n_splits'])
     train_sizes=np.linspace(.1, 1, 6)
     train_sizes, train_scores, test_scores = learning_curve(estimator, X, y,
                                                             cv=cv, n_jobs=-1,
@@ -59,11 +53,7 @@ def plot_learning_curve(estimator, X, y, ax=None, save_as=None, cv=5):
     
     ax.legend(loc="best")
     
-    ## save figure if file name provided
-    if save_as:
-        plt.savefig(save_as)
 
-        
 if __name__ == "__main__":
 
     fig = plt.figure(figsize=(10,5))
