@@ -92,16 +92,16 @@ def plot_model_comparison(rf_model, X_train, y_train, input_params):
 
     # Set titles
     ax1.set_title("Random Forest Tree Regression")
-    ax2.set_title("ElasticNet Regression")
-    ax3.set_title("Random Forest Tree Regression")
-    ax4.set_title("Support Vector Regression")
+    ax2.set_title("tbd")
+    ax3.set_title("tbd")
+    ax4.set_title("tbd")
 
     # Define axes limits
     # for ax in [ax1, ax2, ax3, ax4]:
     #     ax.set_ylim((0.1, 1.2))
 
     # Plot learning curves
-    plot_learning_curve(rf_model, X_train, y_train, ax3, input_params)
+    plot_learning_curve(rf_model, X_train, y_train, ax1, input_params)
     # plot_learning_curve(ls_model, ls_data['X'], ls_data['y'], ax=ax1)
     # plot_learning_curve(en_model, en_data['X'], en_data['y'], ax=ax2)
     # plot_learning_curve(svr_model, svr_data['X'], svr_data['y'], ax=ax4)
