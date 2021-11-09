@@ -1,19 +1,16 @@
-import time,os,re,csv,sys,uuid,joblib
+import time, joblib, warnings, datetime
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
-import warnings
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import ElasticNet
-from sklearn.linear_model import Lasso
-from sklearn.svm import SVR
-from sklearn.metrics import mean_squared_error
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.pipeline import Pipeline
-from numpy import arange
 
-from logger import update_predict_log, update_train_log
-from cslib import fetch_ts, engineer_features
+from pprint import pprint
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
+
 from learning_curve import plot_learning_curve
 
 # Warnings turn off
@@ -23,233 +20,126 @@ warnings.filterwarnings('ignore')
 plt.style.use('seaborn')
 
 ## model specific variables (iterate the version and note with each change)
-MODEL_DIR = "models"
 MODEL_VERSION = 0.1
-MODEL_VERSION_NOTE = "supervised learing model for time-series"
+MODEL_VERSION_NOTE = "Supervised learning model for S&P500 time-series"
 
-def _model_train(df,tag,pipe,param_grid,test=False):
+def split_dataset(df):
     """
-    example funtion to train model
-    
-    The 'test' flag when set to 'True':
-        (1) subsets the data and serializes a test version
-        (2) specifies that the use of the 'test' log file 
-
+    Function for splitting dataset and selecting evaluation data between
+    01-01-2017 and 31-12-2018.
     """
+    # Selecting training dataset
+    to_date = datetime.date(2016, 12, 30)
+    df_train = df.loc[:to_date]
 
-    ## start timer for runtime
-    time_start = time.time()
-    
-    X,y,dates = engineer_features(df)
+    X_train = df_train.drop(columns=['Volume'])
+    y_train = df_train[['Volume']].values.ravel()
 
-    if test:
-        n_samples = int(np.round(0.3 * X.shape[0]))
-        subset_indices = np.random.choice(np.arange(X.shape[0]),n_samples,
-                                          replace=False).astype(int)
-        mask = np.in1d(np.arange(y.size),subset_indices)
-        y=y[mask]
-        X=X[mask]
-        dates=dates[mask]
-        
-    ## Perform a train-test split
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25,
-                                                        shuffle=True, random_state=42)
+    # Selecting evaluation dataset
+    from_date = datetime.date(2017, 1, 3)
+    to_date = datetime.date(2018, 12, 31)
+    df_test = df.loc[from_date:to_date]
 
-    grid = GridSearchCV(pipe, param_grid=param_grid, cv=5, n_jobs=-1)
-    grid.fit(X_train, y_train)
-    y_pred = grid.predict(X_test)
-    eval_rmse =  round(np.sqrt(mean_squared_error(y_test,y_pred)))
-    
-    ## retrain using all data
-    grid.fit(X, y)
-    model_name = re.sub("\.","_",str(MODEL_VERSION))
-    if test:
-        saved_model = os.path.join(MODEL_DIR,
-                                   "test-{}-{}.joblib".format(tag,model_name))
-        print("... saving test version of model: {}".format(saved_model))
-    else:
-        saved_model = os.path.join(MODEL_DIR,
-                                   "sl-{}-{}.joblib".format(tag,model_name))
-        print("... saving model: {}".format(saved_model))
-        
-    joblib.dump(grid,saved_model)
+    X_test = df_test.drop(columns=['Volume'])
+    y_test = df_test[['Volume']].values.ravel()
 
-    m, s = divmod(time.time()-time_start, 60)
-    h, m = divmod(m, 60)
-    runtime = "%03d:%02d:%02d"%(h, m, s)
+    return X_train, X_test, y_train, y_test
 
-    ## update log
-    update_train_log(tag,(str(dates[0]),str(dates[-1])),{'rmse':eval_rmse},runtime,
-                     MODEL_VERSION, test=test)
-  
-
-def model_train(data_dir,pipe,param_grid,test=False):
+def train_random_forest_regr(X_train, X_test, y_train, y_test, pipe, param_grid):
     """
-    funtion to train model given a df
-    
-    'mode' -  can be used to subset data essentially simulating a train
+    Funtion to train Random Forest Regressor
     """
-    
-    if not os.path.isdir(MODEL_DIR):
-        os.mkdir(MODEL_DIR)
-
-    if test:
-        print("... test flag on")
-        print("...... subseting data")
-        print("...... subseting countries")
-        
-    ## fetch time-series formatted data
-    ts_data = fetch_ts(data_dir)
-
-    ## train a different model for each data sets
-    for country,df in ts_data.items():
-        
-        if test and country not in ['all','united_kingdom']:
-            continue
-        
-        _model_train(df,country,pipe,param_grid,test=test)
-    
-def model_load(prefix='sl',data_dir=None,training=True):
-    """
-    example funtion to load model
-    
-    The prefix allows the loading of different models
-    """
-
-    if not data_dir:
-        data_dir = os.path.join("cs-train")
-    
-    models = [f for f in os.listdir(os.path.join(".","models")) if re.search("sl",f)]
-
-    if len(models) == 0:
-        raise Exception("Models with prefix '{}' cannot be found did you train?".format(prefix))
-
-    all_models = {}
-    for model in models:
-        all_models[re.split("-",model)[1]] = joblib.load(os.path.join(".","models",model))
-
-    ## load data
-    ts_data = fetch_ts(data_dir)
-    all_data = {}
-    for country, df in ts_data.items():
-        X,y,dates = engineer_features(df,training=training)
-        dates = np.array([str(d) for d in dates])
-        all_data[country] = {"X":X,"y":y,"dates": dates}
-        
-    return(all_data, all_models)
-
-def model_predict(country,year,month,day,all_models=None,test=False):
-    """
-    example funtion to predict from model
-    """
-
     ## start timer for runtime
     time_start = time.time()
 
-    ## load model if needed
-    if not all_models:
-        all_data,all_models = model_load(training=False)
-    
-    ## input checks
-    if country not in all_models.keys():
-        raise Exception("ERROR (model_predict) - model for country '{}' could not be found".format(country))
+    # Look at parameters used by our current forest
+    print('Parameters currently in use:\n')
+    pprint(rf.get_params())
 
-    for d in [year,month,day]:
-        if re.search("\D",d):
-            raise Exception("ERROR (model_predict) - invalid year, month or day")
-    
-    ## load data
-    model = all_models[country]
-    data = all_data[country]
+    # Defining splitter
+    splitter = TimeSeriesSplit(n_splits=4)
 
-    ## check date
-    target_date = "{}-{}-{}".format(year,str(month).zfill(2),str(day).zfill(2))
-    print(target_date)
+    rand = RandomizedSearchCV(pipe,
+                              param_distributions = param_grid,
+                              n_iter = 10,
+                              cv = splitter,
+                              verbose=2,
+                              random_state=42,
+                              n_jobs = -1)
+    rand.fit(X_train, y_train)
+    y_pred = rand.predict(X_test)
 
-    if target_date not in data['dates']:
-        raise Exception("ERROR (model_predict) - date {} not in range {}-{}".format(target_date,
-                                                                                    data['dates'][0],
-                                                                                    data['dates'][-1]))
-    date_indx = np.where(data['dates'] == target_date)[0][0]
-    query = data['X'].iloc[[date_indx]]
-    
-    ## sainty check
-    if data['dates'].shape[0] != data['X'].shape[0]:
-        raise Exception("ERROR (model_predict) - dimensions mismatch")
+    # Evaluation metrics
+    eval_rmse = round(np.sqrt(mean_squared_error(y_test,y_pred)))
+    eval_mse = round(mean_squared_error(y_test, y_pred))
+    eval_rmae = round(np.sqrt(mean_absolute_error(y_test, y_pred)))
+    eval_mae = round(mean_absolute_error(y_test, y_pred))
+    eval_rmape = round(np.sqrt(mean_absolute_percentage_error(y_test, y_pred)))
+    eval_mape = round(mean_absolute_percentage_error(y_test, y_pred))
 
-    ## make prediction and gather data for log entry
-    y_pred = model.predict(query)
-    y_proba = None
-    if 'predict_proba' in dir(model) and 'probability' in dir(model):
-        if model.probability == True:
-            y_proba = model.predict_proba(query)
+    eval = [eval_rmse, eval_mse, eval_rmae, eval_mae, eval_rmape, eval_mape]
 
+    # Save the model
+    joblib.dump(rand, 'models/trained_model.joblib')
 
     m, s = divmod(time.time()-time_start, 60)
     h, m = divmod(m, 60)
-    runtime = "%03d:%02d:%02d"%(h, m, s)
+    print('Random Forest Tree Model training finished in:', '%d:%02d:%02d'%(h, m, s))
 
-    ## update predict log
-    update_predict_log(country,y_pred,y_proba,target_date,
-                       runtime, MODEL_VERSION, test=test)
-    
-    return({'y_pred':y_pred,'y_proba':y_proba})
+    return rand, eval
+
 
 if __name__ == "__main__":
 
-    """
-    basic test procedure for model_tune_hp.py
-    """
-    # Lasso hyperparameters
-    param_grid_ls = {
-    'ls__alpha': arange(0, 1, 0.1).tolist()
-    }
-    pipe_ls = Pipeline(steps=[('scaler', StandardScaler()),
-                            ('ls', Lasso())])
+    # Data import
+    sp500 = pd.read_pickle('data/sp500_features.pickle')
 
-    # ElasticNet hyperparameters
-    param_grid_en = {
-    'en__alpha': [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 0.0, 1.0, 10.0, 100.0],
-    'en__l1_ratio': arange(0, 1, 0.1).tolist(),
-    }
-    pipe_en = Pipeline(steps=[('scaler', StandardScaler()),
-                            ('en', ElasticNet())])
+    # Prepare train-test split
+    X_train, X_test, y_train, y_test = split_dataset(sp500)
 
-    # RandomForest hyperparameters
-    param_grid_rf = {
-    'rf__criterion': ['mse','mae'],
-    'rf__n_estimators': [10,15,20,25]
+    # RandomForest RandomSearch hyperparameters and pipeline
+    rf = RandomForestRegressor(random_state=42)
+
+    max_depth = [int(x) for x in np.linspace(10, 110, num=11)]
+    max_depth.append(None)
+    param_rand_rf = {
+        'rf__bootstrap': [True, False],
+        'rf__criterion': ['squared_error','absolute_error'],
+        'rf__n_estimators': [int(x) for x in np.linspace(start = 200, stop = 2000, num = 10)],
+        'rf__max_features': ['auto', 'sqrt'],
+        'rf__max_depth': max_depth,
+        'rf__min_samples_split': [2, 5, 10],
+        'rf__min_samples_leaf': [1, 2, 4],
     }
+
     pipe_rf = Pipeline(steps=[('scaler', StandardScaler()),
                             ('rf', RandomForestRegressor())])
 
-    # SVR hyperparameters
-    param_grid_svr = {
-    'svr__C': [0.01, 0.1, 1, 10, 100, 1000],
-    'svr__kernel': ['linear','rbf'],
-    'svr__gamma': [0.001, 0.0001]
-    }
-    pipe_svr = Pipeline(steps=[('scaler', StandardScaler()),
-                            ('svr', SVR())])
+    rf_model, rf_eval = train_random_forest_regr(X_train, X_test, y_train,
+                                              y_test, pipe_rf, param_rand_rf)
 
-    grids = [param_grid_ls, param_grid_en, param_grid_rf, param_grid_svr]
-    pipes = [pipe_ls, pipe_en, pipe_rf, pipe_svr]
+
+
+
+
+    # grids = [param_grid_ls, param_grid_en, param_grid_rf, param_grid_svr]
+    # pipes = [pipe_ls, pipe_en, pipe_rf, pipe_svr]
+
+    grids = [param_rand_rf]
+    pipes = [pipe_rf]
 
     data = []
     models = []
+    scores = []
+
     for param_grid, pipe in zip(grids,pipes):
         ## train the model
         print("TRAINING MODELS")
-        data_dir = os.path.join("cs-train")
-        model_train(data_dir,pipe,param_grid,test=False)
+        model, X_train, X_test, y_train, y_test, y_pred, score = model_train(sp500,pipe,param_grid)
 
-        ## load the model
-        print("LOADING MODELS")
-        all_data, all_models = model_load()
-        print("... models loaded: ",",".join(all_models.keys()))
-
-        data.append(all_data)
-        models.append(all_models)
+        data.append([X_train, y_train])
+        models.append(model)
+        scores.append(score)
 
     ## plot learning curves
     fig = plt.figure(figsize=(10, 10))
@@ -258,49 +148,32 @@ if __name__ == "__main__":
     ax3 = fig.add_subplot(223)
     ax4 = fig.add_subplot(224)
 
-    country='all'
-    ls_model = models[0][country]
-    ls_data = data[0][country]
+    # country='all'
+    # ls_model = models[0][country]
+    # ls_data = data[0][country]
+    #
+    # en_model = models[1][country]
+    # en_data = data[1][country]
 
-    en_model = models[1][country]
-    en_data = data[1][country]
+    rf_model = models[0]
+    X_train = data[0][0]
+    y_train = data[0][1]
 
-    rf_model = models[2][country]
-    rf_data = data[2][country]
+    # svr_model = models[3][country]
+    # svr_data = data[3][country]
 
-    svr_model = models[3][country]
-    svr_data = data[3][country]
-
-    plot_learning_curve(ls_model, ls_data['X'], ls_data['y'], ax=ax1)
-    plot_learning_curve(en_model, en_data['X'], en_data['y'], ax=ax2)
-    plot_learning_curve(rf_model, rf_data['X'], rf_data['y'], ax=ax3)
-    plot_learning_curve(svr_model, svr_data['X'], svr_data['y'], ax=ax4)
+    # plot_learning_curve(ls_model, ls_data['X'], ls_data['y'], ax=ax1)
+    # plot_learning_curve(en_model, en_data['X'], en_data['y'], ax=ax2)
+    plot_learning_curve(rf_model, X_train, y_train, ax=ax3)
+    # plot_learning_curve(svr_model, svr_data['X'], svr_data['y'], ax=ax4)
 
     ax1.set_title("Lasso Regression")
     ax2.set_title("ElasticNet Regression")
     ax3.set_title("Random Forest Tree Regression")
     ax4.set_title("Support Vector Regression")
 
-    for ax in [ax1, ax2, ax3, ax4]:
-        ax.set_ylim((0.1, 1.2))
-
+    # for ax in [ax1, ax2, ax3, ax4]:
+    #     ax.set_ylim((0.1, 1.2))
+    plt.savefig('export/model_comparison.pdf', dpi=600)
     plt.show()
 
-    # Switch for further functionality
-    ## train the model
-    # print("TRAINING MODELS")
-    # data_dir = os.path.join("cs-train")
-    # model_train(data_dir,test=False)
-
-    ## load the model
-    # print("LOADING MODELS")
-    # all_data, all_models = model_load()
-    # print("... models loaded: ",",".join(all_models.keys()))
-
-    ## test predict
-    # country='all'
-    # year='2018'
-    # month='07'
-    # day='06'
-    # result = model_predict(country,year,month,day)
-    # print(result)
