@@ -8,9 +8,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import TimeSeriesSplit, RandomizedSearchCV
 from sklearn.ensemble import RandomForestRegressor, AdaBoostRegressor, GradientBoostingRegressor
-from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
-from sklearn.utils.fixes import loguniform
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 from xgboost.sklearn import XGBRegressor
+from sklearn.utils.fixes import loguniform
 
 from learning_curve import plot_learning_curve
 
@@ -46,6 +46,23 @@ def split_dataset(df):
 
     return X_train, X_test, y_train, y_test
 
+def plot_pred_val(X_test, y_test, y_pred, preffix):
+    """
+    For plotting ground truth and predicted values.
+    """
+    # Plot the predicted values
+    fig, ax = plt.subplots(figsize=(18, 10),)
+    ax.plot(X_test.index, y_test, label='Ground Truth')
+    ax.plot(X_test.index, y_pred, label='Prediction')
+    ax.set_xlabel('Date', fontweight ="bold")
+    ax.set_ylabel('Volume', fontweight ="bold")
+    ax.set_title(f'S&P500 Volume Prediction - {preffix}_Regressor', fontweight ="bold",
+                 fontsize=20)
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig(f'export/sp500_volume_prediction-{preffix}_Regressor.pdf', dpi=1000)
+    plt.show()
+
 def train_model(X_train, X_test, y_train, y_test, pipe, param_grid,
                              params_gen, preffix):
     """
@@ -73,6 +90,9 @@ def train_model(X_train, X_test, y_train, y_test, pipe, param_grid,
     eval_rmse = round(np.sqrt(mean_squared_error(y_test,y_pred)))
     eval_rmae = round(np.sqrt(mean_absolute_error(y_test, y_pred)))
     eval = [eval_rmse, eval_rmae]
+
+    # Plot the predicted values
+    plot_pred_val(X_test, y_test, y_pred, preffix)
 
     # Save the model
     joblib.dump(rand, f'models/{preffix}_model.joblib')
@@ -123,7 +143,7 @@ if __name__ == "__main__":
     # General Parameters
     input_params = {
         'n_splits': 3,
-        'n_iter': 2,
+        'n_iter': 1,
     }
 
     # Data import
@@ -149,7 +169,7 @@ if __name__ == "__main__":
                             ('rf', RandomForestRegressor())])
     # Train the model
     rf_model, rf_eval = train_model(X_train, X_test, y_train, y_test, pipe_rf,
-                                    param_rand_rf, input_params, 'random_forest')
+                                    param_rand_rf, input_params, 'Random_Forest_Tree')
 
     # AdaBoost RandomSearch hyperparameters and pipeline
     ab = AdaBoostRegressor(random_state=42)
@@ -162,7 +182,7 @@ if __name__ == "__main__":
                             ('ab', AdaBoostRegressor())])
     # Train the model
     ab_model, ab_eval = train_model(X_train, X_test, y_train, y_test, pipe_ab,
-                                    param_rand_ab, input_params, 'ada_boost')
+                                    param_rand_ab, input_params, 'Ada_Boost')
 
     # GradientBoost RandomSearch hyperparameters and pipeline
     gb = GradientBoostingRegressor(random_state=42)
@@ -182,7 +202,7 @@ if __name__ == "__main__":
                             ('gb', GradientBoostingRegressor())])
     # Train the model
     gb_model, gb_eval = train_model(X_train, X_test, y_train, y_test, pipe_gb,
-                                    param_rand_gb, input_params, 'gradient_boost')
+                                    param_rand_gb, input_params, 'Gradient_Boost')
 
     # XGBoost RandomSearch hyperparameters and pipeline
     xgbm = XGBRegressor(random_state=42)
