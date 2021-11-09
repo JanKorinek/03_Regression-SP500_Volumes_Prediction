@@ -129,7 +129,7 @@ if __name__ == "__main__":
         'lags': 5,  # Nr. of required lags
     }
     
-    # Raw data import
+    # Data import
     sp500 = pd.read_pickle('data/sp500_fill.pickle')
 
     # Features calculation
