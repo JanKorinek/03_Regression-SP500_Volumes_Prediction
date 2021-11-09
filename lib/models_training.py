@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from pprint import pprint
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import TimeSeriesSplit
@@ -46,23 +45,19 @@ def split_dataset(df):
 
     return X_train, X_test, y_train, y_test
 
-def train_random_forest_regr(X_train, X_test, y_train, y_test, pipe, param_grid):
+def train_random_forest_regr(X_train, X_test, y_train, y_test, pipe, param_grid, params_gen):
     """
     Funtion to train Random Forest Regressor
     """
     ## start timer for runtime
     time_start = time.time()
 
-    # Look at parameters used by our current forest
-    print('Parameters currently in use:\n')
-    pprint(rf.get_params())
-
     # Defining splitter
-    splitter = TimeSeriesSplit(n_splits=4)
+    splitter = TimeSeriesSplit(n_splits=params_gen['n_splits'])
 
     rand = RandomizedSearchCV(pipe,
                               param_distributions = param_grid,
-                              n_iter = 10,
+                              n_iter = params_gen['n_iter'],
                               cv = splitter,
                               verbose=2,
                               random_state=42,
@@ -72,16 +67,11 @@ def train_random_forest_regr(X_train, X_test, y_train, y_test, pipe, param_grid)
 
     # Evaluation metrics
     eval_rmse = round(np.sqrt(mean_squared_error(y_test,y_pred)))
-    eval_mse = round(mean_squared_error(y_test, y_pred))
     eval_rmae = round(np.sqrt(mean_absolute_error(y_test, y_pred)))
-    eval_mae = round(mean_absolute_error(y_test, y_pred))
-    eval_rmape = round(np.sqrt(mean_absolute_percentage_error(y_test, y_pred)))
-    eval_mape = round(mean_absolute_percentage_error(y_test, y_pred))
-
-    eval = [eval_rmse, eval_mse, eval_rmae, eval_mae, eval_rmape, eval_mape]
+    eval = [eval_rmse, eval_rmae]
 
     # Save the model
-    joblib.dump(rand, 'models/trained_model.joblib')
+    joblib.dump(rand, 'models/rfreg_model.joblib')
 
     m, s = divmod(time.time()-time_start, 60)
     h, m = divmod(m, 60)
@@ -89,8 +79,46 @@ def train_random_forest_regr(X_train, X_test, y_train, y_test, pipe, param_grid)
 
     return rand, eval
 
+def plot_model_comparison(rf_model, X_train, y_train, input_params):
+    """
+    Plotting comparison of learning curves for selected models.
+    """
+    # Define subplots
+    fig = plt.figure(figsize=(10, 10))
+    ax1 = fig.add_subplot(221)
+    ax2 = fig.add_subplot(222)
+    ax3 = fig.add_subplot(223)
+    ax4 = fig.add_subplot(224)
+
+    # Set titles
+    ax1.set_title("Random Forest Tree Regression")
+    ax2.set_title("ElasticNet Regression")
+    ax3.set_title("Random Forest Tree Regression")
+    ax4.set_title("Support Vector Regression")
+
+    # Define axes limits
+    # for ax in [ax1, ax2, ax3, ax4]:
+    #     ax.set_ylim((0.1, 1.2))
+
+    # Plot learning curves
+    plot_learning_curve(rf_model, X_train, y_train, ax3, input_params)
+    # plot_learning_curve(ls_model, ls_data['X'], ls_data['y'], ax=ax1)
+    # plot_learning_curve(en_model, en_data['X'], en_data['y'], ax=ax2)
+    # plot_learning_curve(svr_model, svr_data['X'], svr_data['y'], ax=ax4)
+
+    plt.savefig('export/learning_curves_comparison.pdf', dpi=600)
+    plt.show()
 
 if __name__ == "__main__":
+    # Runtime initiation
+    run_start = time.time()
+    print('Training all models...')
+
+    # General Parameters
+    input_params = {
+        'n_splits': 4,
+        'n_iter': 2,
+    }
 
     # Data import
     sp500 = pd.read_pickle('data/sp500_features.pickle')
@@ -105,7 +133,7 @@ if __name__ == "__main__":
     max_depth.append(None)
     param_rand_rf = {
         'rf__bootstrap': [True, False],
-        'rf__criterion': ['squared_error','absolute_error'],
+        'rf__criterion': ['squared_error'],
         'rf__n_estimators': [int(x) for x in np.linspace(start = 200, stop = 2000, num = 10)],
         'rf__max_features': ['auto', 'sqrt'],
         'rf__max_depth': max_depth,
@@ -116,65 +144,16 @@ if __name__ == "__main__":
     pipe_rf = Pipeline(steps=[('scaler', StandardScaler()),
                             ('rf', RandomForestRegressor())])
 
+    # Train the model
     rf_model, rf_eval = train_random_forest_regr(X_train, X_test, y_train,
-                                              y_test, pipe_rf, param_rand_rf)
+                                              y_test, pipe_rf, param_rand_rf, input_params)
 
+    plot_model_comparison(rf_model, X_train, y_train, input_params)
 
+    # Evaluate runtime
+    m, s = divmod(time.time()-run_start,60)
+    h, m = divmod(m, 60)
+    print('All models trained in:', '%d:%02d:%02d'%(h, m, s))
 
-
-
-    # grids = [param_grid_ls, param_grid_en, param_grid_rf, param_grid_svr]
-    # pipes = [pipe_ls, pipe_en, pipe_rf, pipe_svr]
-
-    grids = [param_rand_rf]
-    pipes = [pipe_rf]
-
-    data = []
-    models = []
-    scores = []
-
-    for param_grid, pipe in zip(grids,pipes):
-        ## train the model
-        print("TRAINING MODELS")
-        model, X_train, X_test, y_train, y_test, y_pred, score = model_train(sp500,pipe,param_grid)
-
-        data.append([X_train, y_train])
-        models.append(model)
-        scores.append(score)
-
-    ## plot learning curves
-    fig = plt.figure(figsize=(10, 10))
-    ax1 = fig.add_subplot(221)
-    ax2 = fig.add_subplot(222)
-    ax3 = fig.add_subplot(223)
-    ax4 = fig.add_subplot(224)
-
-    # country='all'
-    # ls_model = models[0][country]
-    # ls_data = data[0][country]
-    #
-    # en_model = models[1][country]
-    # en_data = data[1][country]
-
-    rf_model = models[0]
-    X_train = data[0][0]
-    y_train = data[0][1]
-
-    # svr_model = models[3][country]
-    # svr_data = data[3][country]
-
-    # plot_learning_curve(ls_model, ls_data['X'], ls_data['y'], ax=ax1)
-    # plot_learning_curve(en_model, en_data['X'], en_data['y'], ax=ax2)
-    plot_learning_curve(rf_model, X_train, y_train, ax=ax3)
-    # plot_learning_curve(svr_model, svr_data['X'], svr_data['y'], ax=ax4)
-
-    ax1.set_title("Lasso Regression")
-    ax2.set_title("ElasticNet Regression")
-    ax3.set_title("Random Forest Tree Regression")
-    ax4.set_title("Support Vector Regression")
-
-    # for ax in [ax1, ax2, ax3, ax4]:
-    #     ax.set_ylim((0.1, 1.2))
-    plt.savefig('export/model_comparison.pdf', dpi=600)
-    plt.show()
+    a=1
 
