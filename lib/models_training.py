@@ -6,10 +6,11 @@ import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import TimeSeriesSplit
-from sklearn.model_selection import RandomizedSearchCV
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import TimeSeriesSplit, RandomizedSearchCV
+from sklearn.ensemble import RandomForestRegressor, AdaBoostRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
+from sklearn.utils.fixes import loguniform
+from xgboost.sklearn import XGBRegressor
 
 from learning_curve import plot_learning_curve
 
@@ -45,11 +46,14 @@ def split_dataset(df):
 
     return X_train, X_test, y_train, y_test
 
-def train_random_forest_regr(X_train, X_test, y_train, y_test, pipe, param_grid, params_gen):
+def train_model(X_train, X_test, y_train, y_test, pipe, param_grid,
+                             params_gen, preffix):
     """
-    Funtion to train Random Forest Regressor
+    Funtion to train the model
     """
-    ## start timer for runtime
+    print('\nTraining the model...\n')
+
+    # Start timer for runtime
     time_start = time.time()
 
     # Defining splitter
@@ -71,15 +75,16 @@ def train_random_forest_regr(X_train, X_test, y_train, y_test, pipe, param_grid,
     eval = [eval_rmse, eval_rmae]
 
     # Save the model
-    joblib.dump(rand, 'models/rfreg_model.joblib')
+    joblib.dump(rand, f'models/{preffix}_model.joblib')
 
     m, s = divmod(time.time()-time_start, 60)
     h, m = divmod(m, 60)
-    print('Random Forest Tree Model training finished in:', '%d:%02d:%02d'%(h, m, s))
+    print('\n Random Forest Tree Model training finished in:', '%d:%02d:%02d'%(h, m, s))
 
     return rand, eval
 
-def plot_model_comparison(rf_model, X_train, y_train, input_params):
+
+def plot_model_comparison(models, X_train, y_train, input_params):
     """
     Plotting comparison of learning curves for selected models.
     """
@@ -92,19 +97,20 @@ def plot_model_comparison(rf_model, X_train, y_train, input_params):
 
     # Set titles
     ax1.set_title("Random Forest Tree Regression")
-    ax2.set_title("tbd")
-    ax3.set_title("tbd")
-    ax4.set_title("tbd")
+    ax2.set_title("Ada Boost Regression")
+    ax3.set_title("Gradient Boost Regression")
+    ax4.set_title("XGBoost Regression")
 
     # Define axes limits
     # for ax in [ax1, ax2, ax3, ax4]:
     #     ax.set_ylim((0.1, 1.2))
 
     # Plot learning curves
-    plot_learning_curve(rf_model, X_train, y_train, ax1, input_params)
-    # plot_learning_curve(ls_model, ls_data['X'], ls_data['y'], ax=ax1)
-    # plot_learning_curve(en_model, en_data['X'], en_data['y'], ax=ax2)
-    # plot_learning_curve(svr_model, svr_data['X'], svr_data['y'], ax=ax4)
+    plot_learning_curve(models[0], X_train, y_train, ax1, input_params)
+    plot_learning_curve(models[1], X_train, y_train, ax2, input_params)
+    plot_learning_curve(models[2], X_train, y_train, ax3, input_params)
+    plot_learning_curve(models[3], X_train, y_train, ax4, input_params)
+
 
     plt.savefig('export/learning_curves_comparison.pdf', dpi=600)
     plt.show()
@@ -112,11 +118,11 @@ def plot_model_comparison(rf_model, X_train, y_train, input_params):
 if __name__ == "__main__":
     # Runtime initiation
     run_start = time.time()
-    print('Training all models...')
+    print('Training all models...\n')
 
     # General Parameters
     input_params = {
-        'n_splits': 4,
+        'n_splits': 3,
         'n_iter': 2,
     }
 
@@ -128,32 +134,86 @@ if __name__ == "__main__":
 
     # RandomForest RandomSearch hyperparameters and pipeline
     rf = RandomForestRegressor(random_state=42)
-
     max_depth = [int(x) for x in np.linspace(10, 110, num=11)]
     max_depth.append(None)
     param_rand_rf = {
         'rf__bootstrap': [True, False],
         'rf__criterion': ['squared_error'],
-        'rf__n_estimators': [int(x) for x in np.linspace(start = 200, stop = 2000, num = 10)],
+        'rf__n_estimators': [int(x) for x in np.linspace(start = 50, stop = 1000, num = 20)],
         'rf__max_features': ['auto', 'sqrt'],
         'rf__max_depth': max_depth,
         'rf__min_samples_split': [2, 5, 10],
         'rf__min_samples_leaf': [1, 2, 4],
     }
-
     pipe_rf = Pipeline(steps=[('scaler', StandardScaler()),
                             ('rf', RandomForestRegressor())])
+    # Train the model
+    rf_model, rf_eval = train_model(X_train, X_test, y_train, y_test, pipe_rf,
+                                    param_rand_rf, input_params, 'random_forest')
+
+    # AdaBoost RandomSearch hyperparameters and pipeline
+    ab = AdaBoostRegressor(random_state=42)
+    param_rand_ab = {
+        'ab__n_estimators': [int(x) for x in np.linspace(start = 50, stop = 1000, num = 20)],
+        'ab__loss': ['linear', 'square', 'exponential'],
+        'ab__learning_rate': loguniform(1e-3, 2e-1),
+    }
+    pipe_ab = Pipeline(steps=[('scaler', StandardScaler()),
+                            ('ab', AdaBoostRegressor())])
+    # Train the model
+    ab_model, ab_eval = train_model(X_train, X_test, y_train, y_test, pipe_ab,
+                                    param_rand_ab, input_params, 'ada_boost')
+
+    # GradientBoost RandomSearch hyperparameters and pipeline
+    gb = GradientBoostingRegressor(random_state=42)
+    max_depth = [int(x) for x in np.linspace(10, 110, num=11)]
+    max_depth.append(None)
+    param_rand_gb = {
+        'gb__n_estimators': [int(x) for x in np.linspace(start = 50, stop = 1000, num = 20)],
+        'gb__loss': ['squared_error', 'huber', 'quantile'],
+        'gb__learning_rate': loguniform(1e-3, 2e-1),
+        'gb__criterion': ['squared_error',],
+        'gb__min_samples_split': [2, 5, 10],
+        'gb__min_samples_leaf': [1, 2, 4],
+        'gb__max_features': ['sqrt', 'log2'],
+        'gb__max_depth': max_depth,
+    }
+    pipe_gb = Pipeline(steps=[('scaler', StandardScaler()),
+                            ('gb', GradientBoostingRegressor())])
+    # Train the model
+    gb_model, gb_eval = train_model(X_train, X_test, y_train, y_test, pipe_gb,
+                                    param_rand_gb, input_params, 'gradient_boost')
+
+    # XGBoost RandomSearch hyperparameters and pipeline
+    xgbm = XGBRegressor(random_state=42)
+
+    param_rand_xgbm = {
+        'xgbm__n_estimators': [int(x) for x in np.linspace(start = 50, stop = 1000, num = 20)],
+        'xgbm__learning_rate': loguniform(1e-3, 2e-1),
+        'xgbm__max_depth': range(4,8,2),
+        'xgbm__objective': ['reg:squarederror'],
+        'xgbm__subsample': [0.6, 0.8, 1.0],
+        'xgbm__min_child_weight': [1, 2, 3, 4, 5],
+        'xgbm__reg_alpha': [1e-5, 1e-2, 0.1, 1, 100],
+        'xgbm__gamma': [i/10.0 for i in range(0, 5)],
+        'xgbm__max_delta_step': range(1, 10, 1),
+        'xgbm__booster': ['gbtree', 'gblinear'],
+    }
+    pipe_xgbm = Pipeline(steps=[('scaler', StandardScaler()),
+                            ('xgbm', XGBRegressor())])
 
     # Train the model
-    rf_model, rf_eval = train_random_forest_regr(X_train, X_test, y_train,
-                                              y_test, pipe_rf, param_rand_rf, input_params)
-
-    plot_model_comparison(rf_model, X_train, y_train, input_params)
+    xgbm_model, xgbm_eval = train_model(X_train, X_test, y_train, y_test, pipe_xgbm,
+                                    param_rand_xgbm, input_params, 'XGboost')
+    
+    # Plot model learning curves comparison
+    models = [rf_model, ab_model, gb_model, xgbm_model]
+    plot_model_comparison(models, X_train, y_train, input_params)
 
     # Evaluate runtime
     m, s = divmod(time.time()-run_start,60)
     h, m = divmod(m, 60)
-    print('All models trained in:', '%d:%02d:%02d'%(h, m, s))
+    print('\nAll models trained in:', '%d:%02d:%02d'%(h, m, s))
 
     a=1
 
