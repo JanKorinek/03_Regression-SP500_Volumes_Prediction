@@ -16,7 +16,7 @@ plt.style.use('seaborn')
 
 def plot_learning_curve(estimator, X, y, ax, params_gen):
     """
-    Funciton for plotting learning curve while comparing multiple models.
+    Function for plotting learning curve while comparing multiple models.
     """
 
     cv = TimeSeriesSplit(n_splits=params_gen['n_splits'])
