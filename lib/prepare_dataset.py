@@ -104,6 +104,9 @@ if __name__ == "__main__":
     sp500_calendar = sp500_calendar.set_index('Date')
     sp500_calendar = sp500_calendar.select_dtypes(include=['float64']).fillna(method='ffill')
 
+    # Save dataset
+    sp500_calendar.to_pickle('data/sp500_calendar.pickle')
+
     # Evaluate runtime
     m, s = divmod(time.time()-run_start,60)
     h, m = divmod(m, 60)
