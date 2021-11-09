@@ -4,7 +4,7 @@
 plot inspired by 
 https://scikit-learn.org/stable/auto_examples/model_selection/plot_learning_curve.html#sphx-glr-auto-examples-model-selection-plot-learning-curve-py
 """
-
+from sklearn.model_selection import TimeSeriesSplit
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import learning_curve
@@ -24,11 +24,13 @@ def plot_learning_curve(estimator, X, y, ax=None, save_as=None, cv=5):
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
-    cv = ShuffleSplit(n_splits=5, test_size=0.2, random_state=0)
-    train_sizes=np.linspace(.1, 1.0, 6)
+    # cv = ShuffleSplit(n_splits=5, test_size=0.2, random_state=0)
+    cv = TimeSeriesSplit(n_splits=4)
+    train_sizes=np.linspace(.1, 1, 6)
     train_sizes, train_scores, test_scores = learning_curve(estimator, X, y,
                                                             cv=cv, n_jobs=-1,
-                                                            train_sizes=train_sizes)
+                                                            train_sizes=train_sizes,
+                                                            verbose=2)
     train_scores_mean = np.mean(train_scores, axis=1)
     train_scores_std = np.std(train_scores, axis=1)
     test_scores_mean = np.mean(test_scores, axis=1)
