@@ -229,7 +229,7 @@ def stationarity_check(TS):
 
     return None
 
-def print_score(data, preffix, y_lim):
+def print_score(data, preffix, y_lim, color):
     """
     Function prints score comparison from multiple models.
     :param data: (dict) Score values
@@ -243,7 +243,7 @@ def print_score(data, preffix, y_lim):
     fig = plt.figure(figsize=(10, 5))
 
     # creating the bar plot
-    plt.bar(models, values, width=0.4)
+    plt.bar(models, values, width=0.4, color=color)
 
     plt.ylabel(preffix, fontsize=SMALL_SIZE)
     plt.title(f"{preffix} Score Comparison of the Trained Models", fontsize=LARGE_SIZE)
