@@ -257,5 +257,3 @@ if __name__ == "__main__":
     h, m = divmod(m, 60)
     print('\nAll models trained in:', '%d:%02d:%02d'%(h, m, s))
 
-    a=1
-
