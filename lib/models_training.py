@@ -1,3 +1,7 @@
+#!/usr/bin/python
+"""
+Collection of functions for training multiple models with RandomizedSearch .
+"""
 # Libraries import
 import time, joblib, warnings, datetime
 import numpy as np
