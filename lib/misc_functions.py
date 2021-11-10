@@ -176,7 +176,7 @@ def seasonal_decomposition(df, column, period):
     :param df: Df with time-series data
     :param column: (str) name of the desired column
     :param period: (int) period for decomposition
-    :return: Seasonal decomposition plot
+    :return: Time-series and seasonal decomposition plot
     """
     series = df[column]
     series.index = pd.to_datetime(series.index)
@@ -194,6 +194,106 @@ def seasonal_decomposition(df, column, period):
         plt.tight_layout()
         plt.subplots_adjust(top=.91)
         plt.savefig(f'export/{column}_seasonal_decomposition.pdf', dpi=600)
+
+    return series
+
+def stationarity_check(TS):
+    """
+    Checking stationarity of the time-series
+    :param TS: time-series
+    :return: Plot
+    """
+    # Calculate rolling statistics
+    rolmean = TS.rolling(window = 100, center = False).mean()
+    rolstd = TS.rolling(window = 18, center = False).std()
+
+    # Perform the Dickey Fuller Test
+    dftest = adfuller(TS) # change the passengers column as required
+
+    # Plot rolling statistics:
+    fig = plt.figure(figsize=(12,6))
+    orig = plt.plot(TS, color='blue',label='Original')
+    mean = plt.plot(rolmean, color='red', label='Rolling Mean')
+    std = plt.plot(rolstd, color='black', label = 'Rolling Std')
+    plt.legend(loc='best')
+    plt.title('Rolling Mean & Standard Deviation')
+    plt.show(block=False)
+
+    # Print Dickey-Fuller test results
+    print ('Results of Dickey-Fuller Test:')
+
+    dfoutput = pd.Series(dftest[0:4], index=['Test Statistic','p-value','#Lags Used','Number of Observations Used'])
+    for key,value in dftest[4].items():
+        dfoutput['Critical Value (%s)'%key] = value
+    print (dfoutput)
+
+    return None
+
+def print_score(data, preffix, y_lim):
+    """
+    Function prints score comparison from multiple models.
+    :param data: (dict) Score values
+    :param preffix: Scoring method
+    :return: Bar plot
+    """
+    # Extract models and score values
+    models = list(data.keys())
+    values = list(data.values())
+
+    fig = plt.figure(figsize=(10, 5))
+
+    # creating the bar plot
+    plt.bar(models, values, width=0.4)
+
+    plt.ylabel(preffix, fontsize=SMALL_SIZE)
+    plt.title(f"{preffix} Score Comparison of the Trained Models", fontsize=LARGE_SIZE)
+    plt.ylim(y_lim)
+    plt.savefig(f'export/{preffix}_scores.pdf', dpi=300)
+    plt.show()
+
+def concat_df(main, pred, preffix):
+    """
+    Function adds predicted volumes to evaluation dataframe
+    :param main: Df with evaluation data
+    :param pred: Predicted volume
+    :return: Concatenated Df
+    """
+    pred_res = pred.reshape(pred.shape[0],1)
+    pred_df = pd.DataFrame(data=pred_res, index=main.index, columns=[f'Volume{preffix}'])
+    con = pd.concat([main, pred_df], axis=1, ignore_index=False)
+
+    return con
+
+
+def plot_correlogram(x, lags=None, title=None):
+    """
+    For correlogram printing
+    :param x: Time-series
+    :param lags: (int) Nr. of lags
+    :param title:
+    :return:
+    """
+    lags = min(10, int(len(x)/5)) if lags is None else lags
+    with sns.axes_style('whitegrid'):
+        fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(14, 8))
+        x.plot(ax=axes[0][0], title='Residuals')
+        x.rolling(21).mean().plot(ax=axes[0][0], c='k', lw=1)
+        q_p = np.max(q_stat(acf(x, nlags=lags), len(x))[1])
+        stats = f'Q-Stat: {np.max(q_p):>8.2f}\nADF: {adfuller(x)[1]:>11.2f}'
+        axes[0][0].text(x=.02, y=.85, s=stats, transform=axes[0][0].transAxes)
+        probplot(x, plot=axes[0][1])
+        mean, var, skew, kurtosis = moment(x, moment=[1, 2, 3, 4])
+        s = f'Mean: {mean:>12.2f}\nSD: {np.sqrt(var):>16.2f}\nSkew: {skew:12.2f}\nKurtosis:{kurtosis:9.2f}'
+        axes[0][1].text(x=.02, y=.75, s=s, transform=axes[0][1].transAxes)
+        plot_acf(x=x, lags=lags, zero=False, ax=axes[1][0])
+        plot_pacf(x, lags=lags, zero=False, ax=axes[1][1])
+        axes[1][0].set_xlabel('Lag')
+        axes[1][1].set_xlabel('Lag')
+        fig.suptitle(title, fontsize=14)
+        sns.despine()
+        fig.tight_layout()
+        fig.subplots_adjust(top=.9)
+        plt.savefig(f'export/{title}_.pdf', dpi=600)
 
 
 if __name__ == "__main__":
