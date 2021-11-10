@@ -101,6 +101,75 @@ def print_corr_matrix(df):
     plt.savefig('export/sp500_corr_matrix.pdf', dpi=1000)
     plt.show()
 
+    return corr
+
+def fix_inconsistency(df):
+    """
+    Function fixes value falls detected by personal observation of the feature time-series.
+    Therefore selection ranges are hardcoded.
+    :param df: Features dataset
+    :return: Fixed values Df
+    """
+    # Fixing values inconsistency
+    from_date = datetime.date(2003, 4, 30)
+    to_date = datetime.date(2006, 7, 31)
+    df_fill = df.copy()
+    df_fill['New Home Sale'].loc[from_date:to_date] = df['New Home Sale'].loc[from_date]
+
+    from_date = datetime.date(2002, 9, 30)
+    to_date = datetime.date(2003, 3, 31)
+    df_fill['New Home Sale'].loc[from_date:to_date] = df['New Home Sale'].loc[from_date]
+
+    from_date = datetime.date(2006, 8, 31)
+    to_date = datetime.date(2006, 10, 31)
+    df_fill['New Home Sale'].loc[from_date:to_date] = df['New Home Sale'].loc[from_date]
+
+    from_date = datetime.date(2006, 12, 1)
+    to_date = datetime.date(2007, 1, 31)
+    df_fill['New Home Sale'].loc[from_date:to_date] = df['New Home Sale'].loc[from_date]
+
+    from_date = datetime.date(2006, 11, 30)
+    to_date = datetime.date(2007, 1, 31)
+    df_fill['New Home Sale'].loc[from_date:to_date] = df['New Home Sale'].loc[from_date]
+
+    from_date = datetime.date(2008, 10, 15)
+    to_date = datetime.date(2008, 10, 22)
+    df_fill['Initial Jobless Claim'].loc[from_date:to_date] = df['Initial Jobless Claim'].loc[from_date]
+
+    from_date = datetime.date(2000, 1, 31)
+    to_date = datetime.date(2000, 2, 29)
+    df_fill['Unemployment Rat'].loc[from_date:to_date] = df['Unemployment Rat'].loc[from_date]
+
+    from_date = datetime.date(2000, 5, 31)
+    to_date = datetime.date(2000, 8, 31)
+    df_fill['Unemployment Rat'].loc[from_date:to_date] = df['Unemployment Rat'].loc[from_date]
+
+    from_date = datetime.date(2001, 9, 28)
+    to_date = datetime.date(2001, 10, 31)
+    df_fill['Unemployment Rat'].loc[from_date:to_date] = df['Unemployment Rat'].loc[from_date]
+
+    from_date = datetime.date(2003, 4, 30)
+    to_date = datetime.date(2003, 6, 30)
+    df_fill['Unemployment Rat'].loc[from_date:to_date] = df['Unemployment Rat'].loc[from_date]
+
+    from_date = datetime.date(2005, 6, 30)
+    to_date = datetime.date(2005, 8, 31)
+    df_fill['Unemployment Rat'].loc[from_date:to_date] = df['Unemployment Rat'].loc[from_date]
+
+    from_date = datetime.date(2005, 10, 31)
+    to_date = datetime.date(2006, 1, 31)
+    df_fill['Unemployment Rat'].loc[from_date:to_date] = df['Unemployment Rat'].loc[from_date]
+
+    from_date = datetime.date(2008, 1, 31)
+    to_date = datetime.date(2008, 3, 31)
+    df_fill['Unemployment Rat'].loc[from_date:to_date] = df['Unemployment Rat'].loc[from_date]
+
+    from_date = datetime.date(2008, 4, 30)
+    to_date = datetime.date(2008, 6, 30)
+    df_fill['Unemployment Rat'].loc[from_date:to_date] = df['Unemployment Rat'].loc[from_date]
+
+    return df_fill
+
 
 if __name__ == "__main__":
     # Runtime initiation
