@@ -170,6 +170,31 @@ def fix_inconsistency(df):
 
     return df_fill
 
+def seasonal_decomposition(df, column, period):
+    """
+    Function for seasonal decomposition of the time series
+    :param df: Df with time-series data
+    :param column: (str) name of the desired column
+    :param period: (int) period for decomposition
+    :return: Seasonal decomposition plot
+    """
+    series = df[column]
+    series.index = pd.to_datetime(series.index)
+    components = tsa.seasonal_decompose(series, model='additive', period=period)
+
+    ts = (series.to_frame('Original')
+          .assign(Trend=components.trend)
+          .assign(Seasonality=components.seasonal)
+          .assign(Residual=components.resid))
+    with sns.axes_style('white'):
+        ts.plot(subplots=True, figsize=(14, 8),
+                title=['Original Series', 'Trend Component', 'Seasonal Component', 'Residuals'], legend=False)
+        plt.suptitle('Seasonal Decomposition', fontsize=14)
+        sns.despine()
+        plt.tight_layout()
+        plt.subplots_adjust(top=.91)
+        plt.savefig(f'export/{column}_seasonal_decomposition.pdf', dpi=600)
+
 
 if __name__ == "__main__":
     # Runtime initiation
