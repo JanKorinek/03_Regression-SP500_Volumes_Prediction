@@ -68,7 +68,7 @@ def train_model(X_train, X_test, y_train, y_test, pipe, param_grid,
     """
     Funtion to train the model
     """
-    print('\nTraining the model...\n')
+    print(f'\nTraining the {preffix} model...\n')
 
     # Start timer for runtime
     time_start = time.time()
@@ -94,20 +94,34 @@ def train_model(X_train, X_test, y_train, y_test, pipe, param_grid,
     # Plot the predicted values
     plot_pred_val(X_test, y_test, y_pred, preffix)
 
+    # Plotting additional information
+    print(f'\n------ The best parameters of the {preffix} model are: ------')
+    print(rand.best_estimator_)
+    print('-'*50)
+    print(f'The best cross-validation score: {rand.best_score_}')
+    print(f'MSE: {eval_rmse}')
+    print(f'MAE: {eval_rmae}')
+    print('-' * 50)
+
     # Save the model
     joblib.dump(rand, f'models/{preffix}_model.joblib')
 
     m, s = divmod(time.time()-time_start, 60)
     h, m = divmod(m, 60)
-    print('\n Random Forest Tree Model training finished in:', '%d:%02d:%02d'%(h, m, s))
+    print(f'\n{preffix} model training finished in:', '%d:%02d:%02d'%(h, m, s))
 
-    return rand, eval
+    return rand, eval, y_pred
 
 
 def plot_model_comparison(models, X_train, y_train, input_params):
     """
     Plotting comparison of learning curves for selected models.
     """
+    print(f'\nLearning curves plotting computation in process...\n')
+
+    # Start timer for runtime
+    time_start = time.time()
+
     # Define subplots
     fig = plt.figure(figsize=(10, 10))
     ax1 = fig.add_subplot(221)
@@ -131,9 +145,12 @@ def plot_model_comparison(models, X_train, y_train, input_params):
     plot_learning_curve(models[2], X_train, y_train, ax3, input_params)
     plot_learning_curve(models[3], X_train, y_train, ax4, input_params)
 
-
     plt.savefig('export/learning_curves_comparison.pdf', dpi=600)
     plt.show()
+
+    m, s = divmod(time.time()-time_start, 60)
+    h, m = divmod(m, 60)
+    print(f'\nLearning curves plotted in:', '%d:%02d:%02d'%(h, m, s))
 
 if __name__ == "__main__":
     # Runtime initiation
@@ -168,7 +185,7 @@ if __name__ == "__main__":
     pipe_rf = Pipeline(steps=[('scaler', StandardScaler()),
                             ('rf', RandomForestRegressor())])
     # Train the model
-    rf_model, rf_eval = train_model(X_train, X_test, y_train, y_test, pipe_rf,
+    rf_model, rf_eval, rf_y_pred = train_model(X_train, X_test, y_train, y_test, pipe_rf,
                                     param_rand_rf, input_params, 'Random_Forest_Tree')
 
     # AdaBoost RandomSearch hyperparameters and pipeline
@@ -181,7 +198,7 @@ if __name__ == "__main__":
     pipe_ab = Pipeline(steps=[('scaler', StandardScaler()),
                             ('ab', AdaBoostRegressor())])
     # Train the model
-    ab_model, ab_eval = train_model(X_train, X_test, y_train, y_test, pipe_ab,
+    ab_model, ab_eval, ab_y_pred = train_model(X_train, X_test, y_train, y_test, pipe_ab,
                                     param_rand_ab, input_params, 'Ada_Boost')
 
     # GradientBoost RandomSearch hyperparameters and pipeline
@@ -201,7 +218,7 @@ if __name__ == "__main__":
     pipe_gb = Pipeline(steps=[('scaler', StandardScaler()),
                             ('gb', GradientBoostingRegressor())])
     # Train the model
-    gb_model, gb_eval = train_model(X_train, X_test, y_train, y_test, pipe_gb,
+    gb_model, gb_eval, gb_y_pred = train_model(X_train, X_test, y_train, y_test, pipe_gb,
                                     param_rand_gb, input_params, 'Gradient_Boost')
 
     # XGBoost RandomSearch hyperparameters and pipeline
@@ -223,8 +240,9 @@ if __name__ == "__main__":
                             ('xgbm', XGBRegressor())])
 
     # Train the model
-    xgbm_model, xgbm_eval = train_model(X_train, X_test, y_train, y_test, pipe_xgbm,
-                                    param_rand_xgbm, input_params, 'XGboost')
+    xgbm_model, xgbm_eval, xgbm_y_pred = train_model(X_train, X_test, y_train,
+                                                     y_test, pipe_xgbm, param_rand_xgbm,
+                                                     input_params, 'XGboost')
     
     # Plot model learning curves comparison
     models = [rf_model, ab_model, gb_model, xgbm_model]
