@@ -299,9 +299,9 @@ def plot_correlogram(x, lags=None, title=None):
 if __name__ == "__main__":
     # Runtime initiation
     run_start = time.time()
-    print('Training all models...\n')
+    print('Running functions...\n')
 
     # Evaluate runtime
     m, s = divmod(time.time()-run_start,60)
     h, m = divmod(m, 60)
-    print('\nAll models trained in:', '%d:%02d:%02d'%(h, m, s))
+    print('\nAll ran in:', '%d:%02d:%02d'%(h, m, s))
