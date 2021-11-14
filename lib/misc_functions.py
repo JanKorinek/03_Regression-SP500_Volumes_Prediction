@@ -173,15 +173,18 @@ def fix_inconsistency(df):
 def seasonal_decomposition(df, column, period):
     """
     Function for seasonal decomposition of the time series
+    Credit: Stefan Jansen - Machine Learning for Algorithmic Trading - 2nd Edition
     :param df: Df with time-series data
     :param column: (str) name of the desired column
     :param period: (int) period for decomposition
     :return: Time-series and seasonal decomposition plot
     """
+    # Prepare series and components
     series = df[column]
     series.index = pd.to_datetime(series.index)
     components = tsa.seasonal_decompose(series, model='additive', period=period)
 
+    # Plot decomposition
     ts = (series.to_frame('Original')
           .assign(Trend=components.trend)
           .assign(Seasonality=components.seasonal)
@@ -199,7 +202,8 @@ def seasonal_decomposition(df, column, period):
 
 def stationarity_check(TS):
     """
-    Checking stationarity of the time-series
+    Checking stationarity of the time-series.
+    Credit: Alex Mitrani, https://towardsdatascience.com/time-series-decomposition-and-statsmodels-parameters-69e54d035453
     :param TS: time-series
     :return: Plot
     """
