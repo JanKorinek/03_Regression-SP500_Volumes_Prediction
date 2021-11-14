@@ -80,13 +80,18 @@ def train_model(X_train, X_test, y_train, y_test, pipe, param_grid,
     # Defining splitter
     splitter = TimeSeriesSplit(n_splits=params_gen['n_splits'])
 
+    # Define scoring metrics
+    scoring = ['neg_mean_absolute_error', 'neg_mean_squared_error', 'neg_root_mean_squared_error']
+
     rand = RandomizedSearchCV(pipe,
-                              param_distributions = param_grid,
-                              n_iter = params_gen['n_iter'],
-                              cv = splitter,
-                              verbose=2,
+                              param_distributions=param_grid,
+                              n_iter=params_gen['n_iter'],
+                              cv=splitter,
+                              verbose=0,
                               random_state=42,
-                              n_jobs = -1)
+                              n_jobs=-1,
+                              scoring=scoring,
+                              refit='neg_mean_squared_error')
     rand.fit(X_train, y_train)
     y_pred = rand.predict(X_test)
 
@@ -164,7 +169,7 @@ if __name__ == "__main__":
     # General Parameters
     input_params = {
         'n_splits': 3,
-        'n_iter': 2,
+        'n_iter': 1,
     }
 
     # Data import
