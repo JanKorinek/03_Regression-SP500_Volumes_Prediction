@@ -169,7 +169,7 @@ if __name__ == "__main__":
     # General Parameters
     input_params = {
         'n_splits': 3,
-        'n_iter': 1,
+        'n_iter': 16,
     }
 
     # Data import
