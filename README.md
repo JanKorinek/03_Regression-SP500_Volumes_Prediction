@@ -24,7 +24,7 @@ Complete EDA with model training can be run by`EDA-S&P500_Regression.ipynb`. Pro
 ## Usage
 * Download and go into the repository:
 
-`$ git clone https://gitfront.io/r/korinek-j/67a162cc96f0b8781a7e0f36d989e639a110ce22/04-Classification-Amphibians.git`
+`$ git clone https://gitfront.io/r/korinek-j/de389ca43611982d7c1ae505daac1f158aa72e5f/03-Regression-SP500-Volumes-Prediction.git`
 
 `$ cd 03_Regression-SP500_Volumes_Prediction`
 
