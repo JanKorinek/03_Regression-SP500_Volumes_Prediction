@@ -12,6 +12,7 @@ import pandas as pd
 def remove_parenthesis(row):
     """
     Function for parentheses removal.
+    Credit: https://medium.com/analytics-vidhya/how-to-find-the-correlation-between-the-s-p500-and-the-economic-calendar-using-python-7c29c4faa8ff
     """
     regex = re.compile(".*?\((.*?)\)")
     result = re.findall(regex, row)
@@ -32,6 +33,7 @@ def remove_parenthesis(row):
 def remove_MoM_QoQ(row):
     """
     Function for MoM and QoQ abbreviation removal.
+    Credit: https://medium.com/analytics-vidhya/how-to-find-the-correlation-between-the-s-p500-and-the-economic-calendar-using-python-7c29c4faa8ff
     """
     row = row.replace('MoM', '')
     row = row.replace('QoQ', '')
@@ -44,6 +46,7 @@ def remove_MoM_QoQ(row):
 def convert(el):
     """
     Function for units conversion into scientific numcer format.
+    Credit: https://medium.com/analytics-vidhya/how-to-find-the-correlation-between-the-s-p500-and-the-economic-calendar-using-python-7c29c4faa8ff
     """
     if isinstance(el, str):
         el = float(el.replace("M", "e+06") \
