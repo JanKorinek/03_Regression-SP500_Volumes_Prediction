@@ -22,7 +22,7 @@ Complete EDA with model training can be run by`EDA-S&P500_Regression.ipynb`. Pro
     EDA-S&P500_Regression.ipynb     # Main analysis and models training file
 
 ## Usage
-* Download and go into the repository:
+* Clone the repository below:
 
 `$ git clone https://gitfront.io/r/korinek-j/de389ca43611982d7c1ae505daac1f158aa72e5f/03-Regression-SP500-Volumes-Prediction.git`
 
